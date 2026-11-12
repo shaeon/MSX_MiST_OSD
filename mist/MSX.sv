@@ -464,7 +464,15 @@ wire        cart_eject  = status[2];
 //////////////////   Reset   ///////////////////
 
 wire        sys_rom_ok;
-reg  [23:0] rst_cnt = 24'hFFFFFF;
+// power-on reset: with HDMI (SiDi128) the MSX is held for a fixed 3.1 s after the
+// PLL lock, because the ARM sets up the HDMI transmitter (IT6613) over I2C after
+// power-on and a shorter delay gives a black HDMI screen on a cold boot
+// (same fix as mist-devel/MSX_MiST 4d2e241)
+`ifdef USE_HDMI
+reg  [25:0] rst_cnt = 26'h3FFFFFF;          // 2^26 / 21.48 MHz = 3.1 s
+`else
+reg  [25:0] rst_cnt = 26'h1FFFFF;           // 0.1 s
+`endif
 reg         msx_reset_n = 0;
 reg         eject_d;
 
@@ -487,12 +495,12 @@ always @(posedge clk_sys) begin
 
 	if(~locked)
 `ifdef USE_HDMI
-		rst_cnt <= 24'hFFFFFF;                      // 0.8 s for the HDMI transmitter
+		rst_cnt <= 26'h3FFFFFF;                     // 3.1 s for the HDMI transmitter (IT6613)
 `else
-		rst_cnt <= 24'h1FFFFF;                      // 0.1 s
+		rst_cnt <= 26'h1FFFFF;                      // 0.1 s
 `endif
 	else if(status[0] | buttons[1] | dl_reset | (cart_eject & ~eject_d) | hw_changed)
-		rst_cnt <= 24'h1FFFF;                       // 6 ms
+		rst_cnt <= 26'h1FFFF;                       // 6 ms (HDMI already set up)
 	else if(rst_cnt != 0)
 		rst_cnt <= rst_cnt - 1'd1;
 
