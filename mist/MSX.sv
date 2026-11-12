@@ -92,8 +92,6 @@ module MSX #(parameter VGA_BITS = `MSX_VGA_BITS)
 	output        SDRAM2_CLK,
 	output        SDRAM2_CKE,
 `endif
-	output        AUDIO_L,
-	output        AUDIO_R,
 `ifdef I2S_AUDIO
 	output        I2S_BCK,
 	output        I2S_LRCK,
@@ -115,8 +113,12 @@ module MSX #(parameter VGA_BITS = `MSX_VGA_BITS)
 	input         MIDI_IN,
 	output        MIDI_OUT,
 `endif
+`ifndef NO_UART
 	input         UART_RX,
-	output        UART_TX
+	output        UART_TX,
+`endif
+	output        AUDIO_L,
+	output        AUDIO_R
 );
 
 `ifdef NO_DIRECT_UPLOAD
@@ -161,7 +163,11 @@ assign SDRAM2_nWE = 0;
 `ifdef USE_MIDI_PINS
 assign MIDI_OUT = 1'b1;
 `endif
+`ifdef NO_UART
+wire UART_RX = 1'b1;            // SiDi: no UART pins
+`else
 assign UART_TX = 1'b1;
+`endif
 
 `include "build_id.v"
 
