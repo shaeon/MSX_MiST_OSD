@@ -1,0 +1,161 @@
+# Compila en GitHub todas las versiones del core MSX y deja los .rbf y los
+# informes como resultado de la ejecucion. Al subir una etiqueta v* (por
+# ejemplo v1.0) crea ademas una Release con todos los .rbf.
+#
+#   Placa      Revision       Quartus  Imagen Docker
+#   MiST       msx2_mist      13.1     raetro/quartus:13.1   (Cyclone III)
+#   MiST       msx1_mist      13.1     raetro/quartus:13.1
+#   SiDi       msx2_sidi      17.0     raetro/quartus:17.0   (Cyclone IV E)
+#   SiDi       msx1_sidi      17.0     raetro/quartus:17.0
+#   SiDi128    msx2_SiDi128   17.0     raetro/quartus:17.0   (Cyclone 10 LP)
+#
+# - push / pull request: compila las cinco en paralelo (pestana Actions).
+# - Lanzar a mano: Actions > Build > Run workflow.
+# - Release: git tag v1.0 && git push origin v1.0
+
+name: Build
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'sim/**'
+  pull_request:
+    branches: [master, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'sim/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write          # para crear la Release en las etiquetas v*
+
+jobs:
+  build:
+    name: ${{ matrix.board }} ${{ matrix.machine }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { board: MiST,    machine: MSX2, rev: msx2_mist,    quartus: '13.1' }
+          - { board: MiST,    machine: MSX1, rev: msx1_mist,    quartus: '13.1' }
+          - { board: SiDi,    machine: MSX2, rev: msx2_sidi,    quartus: '17.0' }
+          - { board: SiDi,    machine: MSX1, rev: msx1_sidi,    quartus: '17.0' }
+          - { board: SiDi128, machine: MSX2, rev: msx2_SiDi128, quartus: '17.0', extra: extra_sidi128 }
+
+    steps:
+      # Las imagenes de Quartus ocupan varios GB: se libera sitio antes
+      - name: Liberar espacio en disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h /
+
+      # T80 y mist/mist-modules van como submodulos
+      - name: Descargar el repositorio con los submodulos
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # SiDi128: sus ficheros estan en extra_sidi128 y se compilan desde mist/
+      - name: Preparar los ficheros de ${{ matrix.board }}
+        if: matrix.extra != ''
+        run: |
+          cp -r ${{ matrix.extra }}/* mist/
+          ls mist/*.qsf
+
+      - name: Descargar Quartus ${{ matrix.quartus }}
+        run: docker pull raetro/quartus:${{ matrix.quartus }}
+
+      # Compilacion completa: build_id_verilog.tcl, sintesis, ajuste,
+      # ensamblado (con el .rbf) y tiempos
+      - name: Compilar ${{ matrix.rev }}
+        run: |
+          docker run --rm -e QUARTUS_64BIT=1 -v "$GITHUB_WORKSPACE":/build -w /build/mist \
+            raetro/quartus:${{ matrix.quartus }} \
+            quartus_sh --flow compile ${{ matrix.rev }}
+
+      # Por si el .qsf no genera el .rbf
+      - name: Generar el RBF
+        run: |
+          OUT=mist/output_files/${{ matrix.rev }}
+          if [ ! -f "$OUT.rbf" ] && [ -f "$OUT.sof" ]; then
+            docker run --rm -e QUARTUS_64BIT=1 -v "$GITHUB_WORKSPACE":/build -w /build/mist \
+              raetro/quartus:${{ matrix.quartus }} \
+              quartus_cpf -c output_files/${{ matrix.rev }}.sof output_files/${{ matrix.rev }}.rbf
+          fi
+
+      # Recursos y tiempos en la pagina de la ejecucion; aviso si alguna
+      # holgura es negativa (no para la compilacion: el .rbf sale igual)
+      - name: Resumen
+        if: always()
+        run: |
+          OUT=mist/output_files/${{ matrix.rev }}
+          {
+            echo "## ${{ matrix.board }} ${{ matrix.machine }} (${{ matrix.rev }}, Quartus ${{ matrix.quartus }})"
+            if [ -f "$OUT.fit.summary" ]; then
+              echo '```'
+              grep -E 'Fitter Status|Device|Total logic elements|Total memory bits|Total PLLs' "$OUT.fit.summary"
+              echo '```'
+            fi
+            if [ -f "$OUT.sta.rpt" ]; then
+              echo '```'
+              for s in "Setup Summary" "Hold Summary" "Recovery Summary" "Removal Summary"; do
+                echo "== $s"
+                sed -n "/; Slow .*Model $s/,/^$/p;/; Fast .*Model $s/,/^$/p" "$OUT.sta.rpt" \
+                  | grep -E '^; |Model' | grep -v 'Clock *;' | cut -c1-110
+              done
+              echo '```'
+            else
+              echo "No hay informe de tiempos"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "$OUT.sta.rpt" ] && \
+             sed -n '/Setup Summary/,/Removal Summary/p' "$OUT.sta.rpt" | grep -qE ';[[:space:]]*-[0-9]+\.[0-9]+[[:space:]]*;'; then
+            echo "::warning title=Tiempos ${{ matrix.rev }}::Hay holguras negativas: revisa ${{ matrix.rev }}.sta.rpt"
+          fi
+
+      - name: Preparar el resultado
+        if: always()
+        run: |
+          mkdir -p dist
+          DATE=$(date -u +%Y%m%d)
+          OUT=mist/output_files/${{ matrix.rev }}
+          NAME=${{ matrix.machine }}_${{ matrix.board }}
+          [ -f "$OUT.rbf" ] && cp "$OUT.rbf" "dist/${NAME}_${DATE}.rbf"
+          for r in map fit sta flow asm; do
+            [ -f "$OUT.$r.rpt" ] && cp "$OUT.$r.rpt" "dist/${NAME}.$r.rpt"
+          done
+          ls -la dist
+
+      - name: Subir el resultado
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.machine }}_${{ matrix.board }}
+          path: dist/
+          retention-days: 30
+
+  # Junta los .rbf de todas las placas en una sola Release (etiquetas v*)
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar los resultados
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Crear la Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.rbf
+          generate_release_notes: true
