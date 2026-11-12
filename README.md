@@ -1,5 +1,7 @@
 # MSX2 e MSX1 per MiST, con menu OSD
 
+**System ROMs / ROMs de sistema:** [English](ROMS.md) · [Español](ROMS_es.md)
+
 Questo ramo (`msx2-msx1-osd`) parte dal core OneChipMSX per MiST di gyurco ([gyurco/MSX_MiST](https://github.com/gyurco/MSX_MiST))
 e lo trasforma in due core che si comportano come computer MSX veri e si usano dal menu della MiST (F12, o F11 con `key_remap`):
 
