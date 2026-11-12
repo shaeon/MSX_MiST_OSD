@@ -86,8 +86,10 @@ library ieee;
 entity msx2_core is
     generic(
         SIM_FAST        : boolean := false;                         -- simulation only: short power-on timers
-        MSX1            : integer := 0                              -- 1: MSX1 (64K RAM without mapper, no RTC,
+        MSX1            : integer := 0;                             -- 1: MSX1 (64K RAM without mapper, no RTC,
                                                                     --    no SUB-ROM, MSX1 file layout)
+        SDRAM16         : integer := 0                              -- 1: 16 MB SDRAM (12 address lines, Calypso):
+                                                                    --    4 MB cartridges at 0x0800000 / 0x0C00000
     );
     port(
         -- Clock, Reset
@@ -345,7 +347,8 @@ architecture RTL of msx2_core is
 
     component rom_loader
         generic(
-            MSX1            : integer := 0
+            MSX1            : integer := 0;
+            SDRAM16         : integer := 0
         );
         port(
             clk21m          : in    std_logic;
@@ -1455,8 +1458,10 @@ begin
     --       row = CpuAdr(24 downto 23) & CpuAdr(11 downto 1), column = CpuAdr(20 downto 12)
     -----------------------------------------------------------------
     CpuAdr  <=  "000"              & MapAdr                     when( iSltMap   = '1' )else     -- 0x0000000 mapper RAM (4 MB)
-                "10"               & Cart1Adr                   when( iSltCart1 = '1' )else     -- 0x1000000 cartridge 1
-                "11"               & Cart2Adr                   when( iSltCart2 = '1' )else     -- 0x1800000 cartridge 2
+                "10"               & Cart1Adr                   when( iSltCart1 = '1' and SDRAM16 = 0 )else -- 0x1000000 cartridge 1
+                "11"               & Cart2Adr                   when( iSltCart2 = '1' and SDRAM16 = 0 )else -- 0x1800000 cartridge 2
+                "010"  & Cart1Adr(21 downto 0)                  when( iSltCart1 = '1' )else     -- 16 MB: 0x0800000 cartridge 1 (4 MB)
+                "011"  & Cart2Adr(21 downto 0)                  when( iSltCart2 = '1' )else     -- 16 MB: 0x0C00000 cartridge 2 (4 MB)
                 "0011000" & "00"   & "0"  & adr(14 downto 0)    when( rom_main  = '1' )else     -- 0x0600000 MAIN-ROM
                 "0011000" & "00"   & "10" & adr(13 downto 0)    when( rom_sub   = '1' )else     -- 0x0608000 SUB-ROM
                 "0011000" & "00"   & "11" & adr(13 downto 0)    when( rom_disk  = '1' )else     -- 0x060C000 DISK-ROM
@@ -1860,7 +1865,7 @@ begin
     OpllEnaWait <= ff_clksel xnor ff_clksel5m_n;
 
     U40 : rom_loader
-        generic map( MSX1 => MSX1 )
+        generic map( MSX1 => MSX1, SDRAM16 => SDRAM16 )
         port map(
             clk21m          => clk21m,
             dl_download     => dl_download,

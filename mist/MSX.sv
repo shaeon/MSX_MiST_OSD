@@ -23,15 +23,22 @@
 
 `ifdef VGA_8BIT
 `define MSX_VGA_BITS 8
+`elsif VGA_4BIT
+`define MSX_VGA_BITS 4
 `else
 `define MSX_VGA_BITS 6
 `endif
 
 module MSX #(parameter VGA_BITS = `MSX_VGA_BITS)
 (
+`ifdef BOARD_CLOCK_50
+	input         CLOCK_50,           // Poseidon: 50 MHz
+`elsif BOARD_CLOCK_12
+	input         CLK12M,             // Calypso: 12 MHz
+`else
 	input         CLOCK_27,
+`endif
 
-	output        LED,
 	output reg [VGA_BITS-1:0] VGA_R,
 	output reg [VGA_BITS-1:0] VGA_G,
 	output reg [VGA_BITS-1:0] VGA_B,
@@ -117,8 +124,11 @@ module MSX #(parameter VGA_BITS = `MSX_VGA_BITS)
 	input         UART_RX,
 	output        UART_TX,
 `endif
+`ifndef NO_ANALOG_AUDIO
 	output        AUDIO_L,
-	output        AUDIO_R
+	output        AUDIO_R,
+`endif
+	output        LED
 );
 
 `ifdef NO_DIRECT_UPLOAD
@@ -167,6 +177,12 @@ assign MIDI_OUT = 1'b1;
 wire UART_RX = 1'b1;            // SiDi: no UART pins
 `else
 assign UART_TX = 1'b1;
+`endif
+
+`ifdef SDRAM_16MB
+localparam SDRAM16 = 1;             // Calypso: 12 address lines, 16 MB
+`else
+localparam SDRAM16 = 0;
 `endif
 
 `include "build_id.v"
@@ -261,7 +277,13 @@ wire hdmiclk;
 
 pll pll
 (
+`ifdef BOARD_CLOCK_50
+	.inclk0(CLOCK_50),
+`elsif BOARD_CLOCK_12
+	.inclk0(CLK12M),
+`else
 	.inclk0(CLOCK_27),
+`endif
 	.c0(memclk),
 	.c1(clk_sys),
 `ifdef USE_HDMI
@@ -651,7 +673,7 @@ wire [13:0] audio;
 wire        dac_out;
 wire        cmt_out;
 
-msx2_core #(.MSX1(MSX1)) msx2
+msx2_core #(.MSX1(MSX1), .SDRAM16(SDRAM16)) msx2
 (
 	.clk21m(clk_sys),
 	.memclk(memclk),
@@ -731,8 +753,10 @@ msx2_core #(.MSX1(MSX1)) msx2
 	.cfg_ram30(cfg_ram30)
 );
 
+`ifndef NO_ANALOG_AUDIO
 assign AUDIO_L = dac_out;
 assign AUDIO_R = dac_out;
+`endif
 
 assign LED = ~(disk_led | ioctl_download | (cas_active & cas_motor));
 

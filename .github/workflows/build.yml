@@ -7,9 +7,17 @@
 #   MiST       msx1_mist      13.1     raetro/quartus:13.1
 #   SiDi       msx2_sidi      17.0     raetro/quartus:17.0   (Cyclone IV E)
 #   SiDi       msx1_sidi      17.0     raetro/quartus:17.0
-#   SiDi128    msx2_SiDi128   17.0     raetro/quartus:17.0   (Cyclone 10 LP)
+#   SiDi128    msx2_SiDi128   17.0     raetro/quartus:17.0   (Cyclone 10 LP 10CL120)
+#   SiDi128    msx1_SiDi128   17.0     raetro/quartus:17.0
+#   Calypso    msx2_calypso   17.0     raetro/quartus:17.0   (Cyclone 10 LP 10CL025)
+#   Calypso    msx1_calypso   17.0     raetro/quartus:17.0
+#   Poseidon   msx2_poseidon  17.0     raetro/quartus:17.0   (Cyclone IV GX EP4CGX150)
+#   Poseidon   msx1_poseidon  17.0     raetro/quartus:17.0
 #
-# - push / pull request: compila las cinco en paralelo (pestana Actions).
+# Cada placa tiene su carpeta con el proyecto (mist/, calypso/, poseidon/);
+# las de SiDi128 estan en extra_sidi128/ y se copian a mist/ para compilar.
+#
+# - push / pull request: compila todas en paralelo (pestana Actions).
 # - Lanzar a mano: Actions > Build > Run workflow.
 # - Release: git tag v1.0 && git push origin v1.0
 
@@ -43,11 +51,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { board: MiST,    machine: MSX2, rev: msx2_mist,    quartus: '13.1' }
-          - { board: MiST,    machine: MSX1, rev: msx1_mist,    quartus: '13.1' }
-          - { board: SiDi,    machine: MSX2, rev: msx2_sidi,    quartus: '17.0' }
-          - { board: SiDi,    machine: MSX1, rev: msx1_sidi,    quartus: '17.0' }
-          - { board: SiDi128, machine: MSX2, rev: msx2_SiDi128, quartus: '17.0', extra: extra_sidi128 }
+          - { board: MiST,     machine: MSX2, rev: msx2_mist,     quartus: '13.1', dir: mist }
+          - { board: MiST,     machine: MSX1, rev: msx1_mist,     quartus: '13.1', dir: mist }
+          - { board: SiDi,     machine: MSX2, rev: msx2_sidi,     quartus: '17.0', dir: mist }
+          - { board: SiDi,     machine: MSX1, rev: msx1_sidi,     quartus: '17.0', dir: mist }
+          - { board: SiDi128,  machine: MSX2, rev: msx2_SiDi128,  quartus: '17.0', dir: mist, extra: extra_sidi128 }
+          - { board: SiDi128,  machine: MSX1, rev: msx1_SiDi128,  quartus: '17.0', dir: mist, extra: extra_sidi128 }
+          - { board: Calypso,  machine: MSX2, rev: msx2_calypso,  quartus: '17.0', dir: calypso }
+          - { board: Calypso,  machine: MSX1, rev: msx1_calypso,  quartus: '17.0', dir: calypso }
+          - { board: Poseidon, machine: MSX2, rev: msx2_poseidon, quartus: '17.0', dir: poseidon }
+          - { board: Poseidon, machine: MSX1, rev: msx1_poseidon, quartus: '17.0', dir: poseidon }
 
     steps:
       # Las imagenes de Quartus ocupan varios GB: se libera sitio antes
@@ -77,16 +90,16 @@ jobs:
       # ensamblado (con el .rbf) y tiempos
       - name: Compilar ${{ matrix.rev }}
         run: |
-          docker run --rm -e QUARTUS_64BIT=1 -v "$GITHUB_WORKSPACE":/build -w /build/mist \
+          docker run --rm -e QUARTUS_64BIT=1 -v "$GITHUB_WORKSPACE":/build -w /build/${{ matrix.dir }} \
             raetro/quartus:${{ matrix.quartus }} \
             quartus_sh --flow compile ${{ matrix.rev }}
 
       # Por si el .qsf no genera el .rbf
       - name: Generar el RBF
         run: |
-          OUT=mist/output_files/${{ matrix.rev }}
+          OUT=${{ matrix.dir }}/output_files/${{ matrix.rev }}
           if [ ! -f "$OUT.rbf" ] && [ -f "$OUT.sof" ]; then
-            docker run --rm -e QUARTUS_64BIT=1 -v "$GITHUB_WORKSPACE":/build -w /build/mist \
+            docker run --rm -e QUARTUS_64BIT=1 -v "$GITHUB_WORKSPACE":/build -w /build/${{ matrix.dir }} \
               raetro/quartus:${{ matrix.quartus }} \
               quartus_cpf -c output_files/${{ matrix.rev }}.sof output_files/${{ matrix.rev }}.rbf
           fi
@@ -96,7 +109,7 @@ jobs:
       - name: Resumen
         if: always()
         run: |
-          OUT=mist/output_files/${{ matrix.rev }}
+          OUT=${{ matrix.dir }}/output_files/${{ matrix.rev }}
           {
             echo "## ${{ matrix.board }} ${{ matrix.machine }} (${{ matrix.rev }}, Quartus ${{ matrix.quartus }})"
             if [ -f "$OUT.fit.summary" ]; then
@@ -126,7 +139,7 @@ jobs:
         run: |
           mkdir -p dist
           DATE=$(date -u +%Y%m%d)
-          OUT=mist/output_files/${{ matrix.rev }}
+          OUT=${{ matrix.dir }}/output_files/${{ matrix.rev }}
           NAME=${{ matrix.machine }}_${{ matrix.board }}
           [ -f "$OUT.rbf" ] && cp "$OUT.rbf" "dist/${NAME}_${DATE}.rbf"
           for r in map fit sta flow asm; do

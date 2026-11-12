@@ -31,7 +31,8 @@ library ieee;
 
 entity rom_loader is
     generic(
-        MSX1            : integer := 0                              -- 1: MSX1 file layout (MAIN, DISK, MSX-MUSIC)
+        MSX1            : integer := 0;                             -- 1: MSX1 file layout (MAIN, DISK, MSX-MUSIC)
+        SDRAM16         : integer := 0                              -- 1: 16 MB SDRAM, 4 MB cartridges at 0x0800000/0x0C00000
     );
     port(
         clk21m          : in    std_logic;
@@ -237,9 +238,15 @@ begin
                         end if;
 
                     when K_CART1 | K_CART2 =>
-                        if( dl_addr(26 downto 23) = "0000" )then
+                        if( dl_addr(26 downto 23) = "0000" and ( SDRAM16 = 0 or dl_addr(22) = '0' ) )then
                             wr_req <= '1';
-                            if( ff_kind = K_CART1 )then
+                            if( SDRAM16 /= 0 )then
+                                if( ff_kind = K_CART1 )then
+                                    wr_adr <= "010" & std_logic_vector(a(21 downto 0));
+                                else
+                                    wr_adr <= "011" & std_logic_vector(a(21 downto 0));
+                                end if;
+                            elsif( ff_kind = K_CART1 )then
                                 wr_adr <= "10" & std_logic_vector(a);
                             else
                                 wr_adr <= "11" & std_logic_vector(a);
