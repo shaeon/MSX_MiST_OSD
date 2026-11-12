@@ -161,14 +161,31 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
       - name: Descargar los resultados
         uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
 
+      # Solo C-BIOS (licencia BSD): las ROMs de sistema de Philips tienen
+      # copyright y no se pueden distribuir; cada usuario monta las suyas
+      - name: Empaquetar C-BIOS
+        run: |
+          mkdir -p cbios_pkg
+          cp cbios/MSX2_CBIOS.ROM cbios_pkg/MSX2.ROM
+          cp cbios/MSX1_CBIOS.ROM cbios_pkg/MSX1.ROM
+          cp cbios/LICENSE.txt cbios_pkg/LICENSE_CBIOS.txt
+          (cd cbios_pkg && zip -q ../dist/CBIOS_ROMs.zip *)
+          ls -la dist
+
       - name: Crear la Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.rbf
+          files: |
+            dist/*.rbf
+            dist/CBIOS_ROMs.zip
+          prerelease: ${{ startsWith(github.ref, 'refs/tags/v0.') }}
           generate_release_notes: true
