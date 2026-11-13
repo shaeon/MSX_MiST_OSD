@@ -1032,6 +1032,8 @@ begin
                 wait_n_s <= '0';
             elsif( (ff_clksel = '1' or ff_clksel5m_n = '0') and OpllReq = '1' and OpllAck = '0' )then
                 wait_n_s <= '0';
+            elsif( ErmReq = '1' and adr(15 downto 13) = "010" and MmcAct = '1' )then   -- MegaSD: SD/MMC transfer in progress (OCM emsx_top)
+                wait_n_s <= '0';
             else
                 wait_n_s <= '1';
             end if;
