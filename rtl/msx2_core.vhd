@@ -479,6 +479,7 @@ architecture RTL of msx2_core is
     signal  DiskEna         : std_logic := '0';                     -- '1' = disk ROM + FDC in slot 3-3
     signal  RamSub          : std_logic_vector(  1 downto 0 ) := "10";  -- subslot of slot 3 with the RAM
     signal  Slot3Exp        : std_logic := '1';                     -- '1' = slot 3 is expanded
+    signal  MapOn           : std_logic := '1';                     -- '1' = mapper I/O ports FC-FFh decoded
     signal  DiskSlt         : std_logic;                            -- the CPU is in the slot of the disk interface
     signal  CustomSpeed     : std_logic_vector(  3 downto 0 ) := "0010";
     signal  Kmap            : std_logic;
@@ -956,9 +957,16 @@ begin
             if( reset = '1' )then
                 Slot0Mode <= cfg_music and rom_music_ok;
                 DiskEna   <= cfg_disk  and rom_disk_ok;
+                MapOn     <= '1';
                 if( MSX1 /= 0 )then
+                    -- MSX1: slot 3 expanded (RAM in 3-2, like the VG-8020) when chosen
+                    -- or when the MegaSD needs the subslot 3-0; mapper only if the
+                    -- RAM option is not 64 kB (a RAM expansion, as a cartridge would be)
                     RamSub   <= "10";
-                    Slot3Exp <= cfg_ram30;
+                    Slot3Exp <= cfg_ram30 or cfg_hdd;
+                    if( cfg_ram = "110" )then
+                        MapOn <= '0';
+                    end if;
                 elsif( cfg_ram30 = '1' )then
                     RamSub   <= "00";
                     Slot3Exp <= '1';
@@ -976,9 +984,9 @@ begin
 
     disk_on    <= DiskEna;
 
-    -- MSX1: 64 kB of RAM without memory mapper (the mapper keeps its reset
-    -- segments 3, 2, 1, 0 because its I/O ports are not decoded)
-    MapSize    <= "110" when( MSX1 /= 0 )else cfg_ram;
+    -- MSX1 with 64 kB: no memory mapper (the mapper keeps its reset segments
+    -- 3, 2, 1, 0 because its I/O ports are not decoded)
+    MapSize    <= cfg_ram;
     sys_rom_ok <= rom_main_ok when( MSX1 /= 0 )else rom_main_ok and rom_sub_ok;
 
     ----------------------------------------------------------------
@@ -1097,7 +1105,7 @@ begin
                 dlydbi <= PsgDbi;
             elsif( mem = '0' and adr(  7 downto 2 ) = "101010" )then                            -- PPI (8255)
                 dlydbi <= PpiDbi;
-            elsif( mem = '0' and adr(  7 downto 2 ) = "111111" and MSX1 = 0 )then               -- Memory-mapper
+            elsif( mem = '0' and adr(  7 downto 2 ) = "111111" and MapOn = '1' )then            -- Memory-mapper
                 dlydbi <= MapDbi;
             elsif( mem = '0' and adr(  7 downto 1 ) = "1011010" and MSX1 = 0 )then              -- RTC (RP-5C01)
                 dlydbi <= RtcDbi;
@@ -1319,10 +1327,10 @@ begin
     iSltMap     <=  mem when( w_prislt_dec(3) = '1' and Slot3Exp = '0' )else
                     mem when( w_prislt_dec(3) = '1' and ExpSltNum3 = RamSub and adr /= X"FFFF" )else
                     '0';
-    -- Slot 3-0 (3-2 with the RAM in 3-0) : MegaSD 4000-BFFFh (MSX2, hard disk enabled, driver loaded)
+    -- Slot 3-0 (3-2 with the RAM in 3-0) : MegaSD 4000-BFFFh (hard disk enabled, driver loaded)
     ErmSub      <=  "00" when( RamSub = "10" )else "10";
     iSltErm     <=  mem when( (w_prislt_dec(3) and (w_page_dec(1) or w_page_dec(2))) = '1' and Slot3Exp = '1' and
-                              ExpSltNum3 = ErmSub and cfg_hdd = '1' and erm_ok = '1' and MSX1 = 0 )else
+                              ExpSltNum3 = ErmSub and cfg_hdd = '1' and erm_ok = '1' )else
                     '0';
     MmcWin      <=  '1' when( iSltErm = '1' and MmcEna = '1' and adr(15 downto 13) = "010" )else '0';
     -- Slot 3-1 : SUB-ROM 0000-3FFFh
@@ -1348,7 +1356,7 @@ begin
     PpiReq      <=  req when( mem = '0' and adr(7 downto 2) = "101010"                      )else '0';  -- I/O:A8-ABh / PPI (8255)
     OpllReq     <=  req when( mem = '0' and adr(7 downto 1) = "0111110" and Slot0Mode = '1' )else '0';  -- I/O:7C-7Dh / OPLL (YM2413)
     RomReq      <=  req when( (rom_main or rom_music or rom_sub or rom_disk) = '1'          )else '0';
-    MapReq      <=  req when( mem = '0' and adr(7 downto 2) = "111111" and MSX1 = 0         )else       -- I/O:FC-FFh / Memory-mapper
+    MapReq      <=  req when( mem = '0' and adr(7 downto 2) = "111111" and MapOn = '1'      )else       -- I/O:FC-FFh / Memory-mapper
                     req when( iSltMap = '1'                                                 )else '0';  -- MEM:       / Memory-mapper
     Cart1Req    <=  req when( iSltCart1 = '1'                                               )else '0';
     Cart2Req    <=  req when( iSltCart2 = '1'                                               )else '0';

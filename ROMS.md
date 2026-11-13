@@ -85,7 +85,7 @@ or tapes).
 
 With `MSX1.ROM` missing or without a MAIN-ROM the screen stays black.
 
-## Hard disk (MSX2): `MSX2.R04` and `MSX2.VHD`
+## Hard disk: `MSX2.R04` / `MSX1.R03` and `MSX2.VHD` / `MSX1.VHD`
 
 The MSX2 core can use a hard disk image through an emulated MegaSD (the SD interface of the OneChipMSX).
 It needs two files next to the core:
@@ -97,6 +97,11 @@ It needs two files next to the core:
 
 Then enable *System → Hard disk (MegaSD) → On*. The MegaSD sits in slot 3-0 (3-2 when the RAM is in 3-0).
 With the option Off, or without `MSX2.R04`, the core behaves as before and the image is ignored.
+
+**MSX1:** the same with `MSX1.R03` (driver) and `MSX1.VHD`. With *Hard disk → On* the slot 3 is expanded
+(RAM in 3-2, as in the Philips VG-8020) and the MegaSD goes to 3-0. With 64 KB, Nextor starts in MSX-DOS 1
+mode; for MSX-DOS 2 (NEXTOR.SYS, COMMAND2.COM) choose *System → RAM → 128/256/512 KB (mapper)*, like a RAM
+expansion cartridge. By default the MSX1 is still an original one: 64 KB, no mapper, no hard disk.
 
 ## Script
 

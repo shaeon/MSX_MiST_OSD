@@ -216,7 +216,9 @@ localparam CONF_STR = {
 	"P1OB,MSX-MUSIC (FM),Enabled,Disabled;",
 	"P1OCD,Keyboard,US,Spanish,Italian,Japanese;",
 	"P1OF,Swap joysticks,No,Yes;",
+	"P1O79,RAM,64KB,128KB (mapper),256KB (mapper),512KB (mapper);",
 	"P1OG,RAM slot,3 (normal),3-2 (Philips);",
+	"P1OZ,Hard disk (MegaSD),Off,On;",
 	"P2,Cartridges;",
 	"P2OHJ,Slot 1 mapper,Auto,Plain ROM,Konami SCC,Konami,ASCII 8K,ASCII 16K,Generic 8K;",
 	"P2OKM,Slot 2 mapper,Auto,Plain ROM,Konami SCC,Konami,ASCII 8K,ASCII 16K,Generic 8K;",
@@ -477,7 +479,12 @@ function [2:0] vol(input [1:0] v);
 endfunction
 
 wire  [2:0] cfg_speed   = (status[6:4] > 3'd4) ? 3'd4 : status[6:4];
-wire  [2:0] cfg_ram     = status[9:7];
+// MSX2: 512KB,1MB,2MB,4MB,128KB,256KB,64KB; MSX1: 64KB (no mapper),128KB,256KB,512KB
+wire  [2:0] cfg_ram     = (MSX1 == 0)          ? status[9:7] :
+                          (status[8:7] == 2'd0) ? 3'b110 :       // 64 kB, no mapper
+                          (status[8:7] == 2'd1) ? 3'b100 :       // 128 kB
+                          (status[8:7] == 2'd2) ? 3'b101 :       // 256 kB
+                                                  3'b000;        // 512 kB
 wire        cfg_disk    = ~status[10];
 wire        cfg_music   = ~status[11];
 wire  [1:0] cfg_kbd     = (status[13:12] == 2'd0) ? 2'b00 :      // US (default)
@@ -485,7 +492,7 @@ wire  [1:0] cfg_kbd     = (status[13:12] == 2'd0) ? 2'b00 :      // US (default)
                           (status[13:12] == 2'd2) ? 2'b01 :      // Italian
                                                     2'b10;       // Japanese
 wire        cfg_v9958   = status[14];
-wire        cfg_hdd     = status[35] && (MSX1 == 0);       // MegaSD hard disk (MSX2)
+wire        cfg_hdd     = status[35];                     // MegaSD hard disk
 wire        joy_swap    = status[15];
 wire        cfg_ram30   = status[16];
 wire  [2:0] cfg_mapper1 = (status[19:17] == 3'd7) ? 3'd0 : status[19:17];
@@ -525,8 +532,8 @@ wire        dl_reset = ioctl_download;
 
 // changing the hardware (RAM, cartridge mappers, disk drive, MSX-MUSIC)
 // restarts the MSX, like switching it off and on with the new setup
-wire [12:0] hw_cfg = {status[22:17], status[11:10], status[9:7], status[16], 1'b0};
-reg  [12:0] hw_cfg_d;
+wire [13:0] hw_cfg = {status[35], status[22:17], status[11:10], status[9:7], status[16], 1'b0};
+reg  [13:0] hw_cfg_d;
 reg         hw_changed;
 always @(posedge clk_sys) begin
 	hw_cfg_d   <= hw_cfg;
