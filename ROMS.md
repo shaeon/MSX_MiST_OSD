@@ -85,6 +85,19 @@ or tapes).
 
 With `MSX1.ROM` missing or without a MAIN-ROM the screen stays black.
 
+## Hard disk (MSX2): `MSX2.R04` and `MSX2.VHD`
+
+The MSX2 core can use a hard disk image through an emulated MegaSD (the SD interface of the OneChipMSX).
+It needs two files next to the core:
+
+- `MSX2.R04`: the MegaSD driver, up to 512 KB, loaded into the internal ESE-RAM. It can be a copy of
+  `OCM-BIOS.DAT` (its first 128 KB are the MegaSD driver) or a Nextor ROM built for the OCM/MegaSD.
+- `MSX2.VHD`: the hard disk image (FAT12/FAT16). The firmware mounts it by itself at start-up as SD image 0;
+  another image can be chosen in the OSD.
+
+Then enable *System → Hard disk (MegaSD) → On*. The MegaSD sits in slot 3-0 (3-2 when the RAM is in 3-0).
+With the option Off, or without `MSX2.R04`, the core behaves as before and the image is ignored.
+
 ## Script
 
 `tools/make_roms.bat` (Windows) and `tools/make_roms.sh` (Linux / macOS) build both files from a folder with

@@ -194,8 +194,8 @@ localparam SDRAM16 = 0;
 //                 1 = MSX2.R01 sub ROM, 2 = MSX2.R02 disk ROM,
 //                 3 = MSX2.R03 MSX-MUSIC ROM (optional, loaded at start)
 //                 7 = cartridge slot 1, 8 = cartridge slot 2
-// SD images:      0 = reserved for a hard disk (the firmware mounts <CORE>.VHD
-//                     here by itself at start-up: it must not reach the floppy),
+// SD images:      0 = hard disk (MegaSD, MSX2 only; the firmware mounts <CORE>.VHD
+//                     here by itself at start-up, it never reaches the floppy),
 //                 1 = disk drive A: (.DSK), 2 = cassette (.CAS)
 ////////////////////////////////////////////////////////////////////////////
 
@@ -249,6 +249,7 @@ localparam CONF_STR = {
 	"P1OB,MSX-MUSIC (FM),Enabled,Disabled;",
 	"P1OCD,Keyboard,US,Spanish,Italian,Japanese;",
 	"P1OE,VDP ID,V9938 (MSX2),V9958 (MSX2+);",
+	"P1OZ,Hard disk (MegaSD),Off,On;",
 	"P1OF,Swap joysticks,No,Yes;",
 	"P1OG,RAM slot,3-2 (Philips),3-0 (Sony);",
 	"P2,Cartridges;",
@@ -346,7 +347,12 @@ wire         sd_ack;
 wire   [2:0] sd_ack_x;
 wire   [8:0] sd_buff_addr;
 wire   [7:0] sd_buff_dout;
-wire   [7:0] sd_buff_din;
+wire   [7:0] fdc_buff_din;
+wire         hdd_rd, hdd_wr, hdd_conf, hdd_sdhc;
+wire  [31:0] hdd_lba;
+wire   [7:0] hdd_buff_din;
+wire         sd_ack_conf;
+wire         mmc_ck, mmc_cs, mmc_di, mmc_do;
 wire         sd_buff_wr;
 wire   [2:0] img_mounted;
 wire  [63:0] img_size;
@@ -408,17 +414,17 @@ user_io #(.STRLEN($size(CONF_STR)>>3), .SD_IMAGES(3), .PS2DIV(100), .FEATURES(32
 	.joystick_0(joy_0),
 	.joystick_1(joy_1),
 
-	.sd_conf(1'b0),
-	.sd_sdhc(1'b1),
+	.sd_conf(hdd_conf),
+	.sd_sdhc(hdd_sdhc),
 	.sd_lba(sd_lba),
 	.sd_rd(sd_rd),
 	.sd_wr(sd_wr),
 	.sd_ack(sd_ack),
 	.sd_ack_x(sd_ack_x),
-	.sd_ack_conf(),
+	.sd_ack_conf(sd_ack_conf),
 	.sd_buff_addr(sd_buff_addr),
 	.sd_dout(sd_buff_dout),
-	.sd_din(sd_buff_din),
+	.sd_din(sd_buff_din_mux),
 	.sd_dout_strobe(sd_buff_wr),
 	.sd_din_strobe(),
 	.img_mounted(img_mounted),
@@ -479,6 +485,7 @@ wire  [1:0] cfg_kbd     = (status[13:12] == 2'd0) ? 2'b00 :      // US (default)
                           (status[13:12] == 2'd2) ? 2'b01 :      // Italian
                                                     2'b10;       // Japanese
 wire        cfg_v9958   = status[14];
+wire        cfg_hdd     = status[35] && (MSX1 == 0);       // MegaSD hard disk (MSX2)
 wire        joy_swap    = status[15];
 wire        cfg_ram30   = status[16];
 wire  [2:0] cfg_mapper1 = (status[19:17] == 3'd7) ? 3'd0 : status[19:17];
@@ -683,7 +690,7 @@ msx_fdc msx_fdc
 	.sd_ack(fdc_ack),
 	.sd_buff_addr(sd_buff_addr),
 	.sd_buff_dout(sd_buff_dout),
-	.sd_buff_din(sd_buff_din),
+	.sd_buff_din(fdc_buff_din),
 	.sd_buff_wr(sd_buff_wr),
 	.disk_led(disk_led)
 );
@@ -691,23 +698,50 @@ msx_fdc msx_fdc
 // SD image arbiter: only one sector request at a time is passed to the IO
 // controller, so the common sd_ack is enough (works also with firmware
 // versions that don't send the per-drive acknowledge)
-reg  [1:0] sd_grant = 2'd0;            // 0 = none, 1 = floppy, 2 = cassette
+reg  [1:0] sd_grant = 2'd0;            // 0 = none, 1 = floppy, 2 = cassette, 3 = hard disk
 always @(posedge clk_sys) begin
 	case(sd_grant)
 		2'd0: if(fdc_sd_rd | fdc_sd_wr) sd_grant <= 2'd1;
 		      else if(cas_rd)          sd_grant <= 2'd2;
+		      else if(hdd_rd | hdd_wr) sd_grant <= 2'd3;
 		2'd1: if(~sd_ack & ~fdc_sd_rd & ~fdc_sd_wr) sd_grant <= 2'd0;
 		2'd2: if(~sd_ack & ~cas_rd) sd_grant <= 2'd0;
-		default: sd_grant <= 2'd0;
+		2'd3: if(~sd_ack & ~hdd_rd & ~hdd_wr) sd_grant <= 2'd0;
 	endcase
 end
 
 wire   fdc_ack = sd_ack & (sd_grant == 2'd1);
 wire   cas_ack = sd_ack & (sd_grant == 2'd2);
+wire   hdd_ack = sd_ack & (sd_grant == 2'd3);
 
-assign sd_rd  = {cas_rd & (sd_grant == 2'd2), fdc_sd_rd & (sd_grant == 2'd1), 1'b0};
-assign sd_wr  = {1'b0,                        fdc_sd_wr & (sd_grant == 2'd1), 1'b0};
-assign sd_lba = (sd_grant == 2'd2) ? cas_lba : fdc_lba;
+assign sd_rd  = {cas_rd & (sd_grant == 2'd2), fdc_sd_rd & (sd_grant == 2'd1), hdd_rd & (sd_grant == 2'd3)};
+assign sd_wr  = {1'b0,                        fdc_sd_wr & (sd_grant == 2'd1), hdd_wr & (sd_grant == 2'd3)};
+assign sd_lba = (sd_grant == 2'd2) ? cas_lba : (sd_grant == 2'd3) ? hdd_lba : fdc_lba;
+wire [7:0] sd_buff_din_mux = (sd_grant == 2'd3) ? hdd_buff_din : fdc_buff_din;
+
+////////////////////   Hard disk (MegaSD <-> SD image 0)   ///////////////////
+sd_card sd_card
+(
+	.clk_sys(clk_sys),
+	.img_mounted(img_mounted[0]),
+	.img_size(img_size),
+	.sd_conf(hdd_conf),
+	.sd_ack(hdd_ack),
+	.sd_ack_conf(sd_ack_conf),
+	.sd_sdhc(hdd_sdhc),
+	.sd_rd(hdd_rd),
+	.sd_wr(hdd_wr),
+	.sd_lba(hdd_lba),
+	.sd_buff_addr(sd_buff_addr),
+	.sd_buff_din(hdd_buff_din),
+	.sd_buff_dout(sd_buff_dout),
+	.sd_buff_wr(sd_buff_wr),
+	.allow_sdhc(1'b1),
+	.sd_sck(mmc_ck),
+	.sd_cs(mmc_cs),
+	.sd_sdi(mmc_di),
+	.sd_sdo(mmc_do)
+);
 
 //////////////////   MSX2   ///////////////////
 
@@ -793,6 +827,11 @@ msx2_core #(.MSX1(MSX1), .SDRAM16(SDRAM16)) msx2
 	.cfg_vga(~scandoubler_disable),
 	.cfg_lcd(cfg_lcd),
 	.cfg_kbd(cfg_kbd),
+	.cfg_hdd(cfg_hdd),
+	.mmc_ck(mmc_ck),
+	.mmc_cs(mmc_cs),
+	.mmc_di(mmc_di),
+	.mmc_do(mmc_do),
 	.cfg_v9958(cfg_v9958),
 	.cfg_ram30(cfg_ram30)
 );

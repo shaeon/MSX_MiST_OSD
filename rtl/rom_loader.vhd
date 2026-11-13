@@ -54,6 +54,7 @@ entity rom_loader is
         rom_sub_ok      : out   std_logic;
         rom_disk_ok     : out   std_logic;
         rom_music_ok    : out   std_logic;
+        erm_ok          : out   std_logic;                          -- MegaSD driver loaded (ESE-RAM)
 
         -- cartridges
         eject1          : in    std_logic;
@@ -80,7 +81,7 @@ architecture rtl of rom_loader is
     constant M_ASCII16  : std_logic_vector(2 downto 0) := "101";
     constant M_GEN8     : std_logic_vector(2 downto 0) := "110";
 
-    type kind_t is (K_NONE, K_SYS, K_CART1, K_CART2);
+    type kind_t is (K_NONE, K_SYS, K_CART1, K_CART2, K_ERM);
 
     signal ff_dl        : std_logic := '0';
     signal ff_kind      : kind_t := K_NONE;
@@ -89,6 +90,7 @@ architecture rtl of rom_loader is
     signal ff_ocm       : std_logic := '0';                         -- MSX2.ROM is an OCM-BIOS.DAT
 
     signal f_main       : std_logic := '0';
+    signal f_erm        : std_logic := '0';                         -- MegaSD driver in the ESE-RAM
     signal f_sub        : std_logic := '0';
     signal f_disk       : std_logic := '0';
     signal f_music      : std_logic := '0';
@@ -179,8 +181,12 @@ begin
                         ff_kind <= K_SYS;
                         if( MSX1 /= 0 )then ff_sysbase <= to_unsigned(16#10000#, 17);
                         else                ff_sysbase <= to_unsigned(16#0C000#, 17); end if;
-                    when 3 =>
-                        ff_kind <= K_SYS;  ff_sysbase <= to_unsigned(16#10000#, 17);
+                    when 3 =>                                       -- MSX2: MSX-MUSIC, MSX1: MegaSD driver
+                        if( MSX1 /= 0 )then ff_kind <= K_ERM; f_erm <= '0';
+                        else ff_kind <= K_SYS;  ff_sysbase <= to_unsigned(16#10000#, 17); end if;
+                    when 4 =>                                       -- MSX2: MegaSD driver (Nextor or OCM-BIOS.DAT)
+                        if( MSX1 = 0 )then ff_kind <= K_ERM; f_erm <= '0';
+                        else ff_kind <= K_NONE; end if;
                     when 7 =>
                         ff_kind <= K_CART1; r1_present <= '0';
                     when 8 =>
@@ -303,6 +309,17 @@ begin
                             end case;
                         end if;
 
+                    when K_ERM =>
+                        -- MegaSD driver: up to 512 kB into the ESE-RAM at 0x0400000
+                        -- (a NEXTOR ROM for the MegaSD, or a whole OCM-BIOS.DAT whose
+                        -- first 128 kB are the driver, exactly as the OCM loads it)
+                        if( dl_addr(26 downto 19) = "00000000" )then
+                            wr_req <= '1';
+                            wr_adr <= "001000" & dl_addr(18 downto 0);
+                            wr_dat <= dl_data;
+                            f_erm  <= '1';
+                        end if;
+
                     when others =>
                         null;
                 end case;
@@ -403,6 +420,7 @@ begin
     end process;
 
     rom_main_ok     <= f_main;
+    erm_ok          <= f_erm;
     rom_sub_ok      <= f_sub;
     rom_disk_ok     <= f_disk;
     rom_music_ok    <= f_music;

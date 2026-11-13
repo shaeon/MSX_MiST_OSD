@@ -177,6 +177,11 @@ entity msx2_core is
         cfg_vga         : in    std_logic;                          -- '1' = 31kHz output
         cfg_lcd         : in    std_logic;                          -- '1' = VGA timing for LCDs
         cfg_kbd         : in    std_logic_vector(  1 downto 0 );    -- 00=US, 01=Italian, 10=Japanese, 11=Spanish
+        cfg_hdd         : in    std_logic := '0';                   -- '1' = MegaSD hard disk (MSX2: slot 3-0 or 3-2)
+        mmc_ck          : out   std_logic;                          -- MegaSD SPI to sd_card.v (SD image 0)
+        mmc_cs          : out   std_logic;
+        mmc_di          : out   std_logic;
+        mmc_do          : in    std_logic := '1';
         cfg_v9958       : in    std_logic;                          -- '1' = report a V9958 VDP
         cfg_ram30       : in    std_logic                           -- MSX2: '1' = RAM in slot 3-0 instead of 3-2
                                                                     -- MSX1: '1' = slot 3 expanded, RAM in 3-2
@@ -346,6 +351,33 @@ architecture RTL of msx2_core is
         );
     end component;
 
+    component megasd
+        port(
+            clk21m  : in    std_logic;
+            reset   : in    std_logic;
+            req     : in    std_logic;
+            wrt     : in    std_logic;
+            adr     : in    std_logic_vector( 15 downto 0 );
+            dbo     : in    std_logic_vector(  7 downto 0 );
+            ramreq  : out   std_logic;
+            ramwrt  : out   std_logic;
+            ramadr  : out   std_logic_vector( 19 downto 0 );
+            mmcdbi  : out   std_logic_vector(  7 downto 0 );
+            mmcena  : out   std_logic;
+            mmcact  : out   std_logic;
+            mmc_ck  : out   std_logic;
+            mmc_cs  : out   std_logic;
+            mmc_di  : out   std_logic;
+            mmc_do  : in    std_logic;
+            epc_ck  : out   std_logic;
+            epc_cs  : out   std_logic;
+            epc_oe  : out   std_logic;
+            epc_di  : out   std_logic;
+            epc_do  : in    std_logic;
+            debug   : out   std_logic_vector(  7 downto 0 )
+        );
+    end component;
+
     component rom_loader
         generic(
             MSX1            : integer := 0;
@@ -365,6 +397,7 @@ architecture RTL of msx2_core is
             rom_sub_ok      : out   std_logic;
             rom_disk_ok     : out   std_logic;
             rom_music_ok    : out   std_logic;
+            erm_ok          : out   std_logic;
             eject1          : in    std_logic;
             eject2          : in    std_logic;
             cart1_present   : out   std_logic;
@@ -529,6 +562,18 @@ architecture RTL of msx2_core is
     signal  MapReq          : std_logic;
     signal  MapDbi          : std_logic_vector(  7 downto 0 );
     signal  MapRam          : std_logic;
+    -- MegaSD (ESE-RAM 512 kB at 0x0400000 + SD/MMC SPI port)
+    signal  iSltErm         : std_logic;
+    signal  ErmReq          : std_logic;
+    signal  ErmRam          : std_logic;
+    signal  ErmWrt          : std_logic;
+    signal  ErmAdr          : std_logic_vector( 19 downto 0 );
+    signal  MmcDbi          : std_logic_vector(  7 downto 0 );
+    signal  MmcEna          : std_logic;
+    signal  MmcAct          : std_logic;
+    signal  MmcWin          : std_logic;                            -- read of the SD/MMC data window
+    signal  ErmSub          : std_logic_vector(  1 downto 0 );
+    signal  erm_ok          : std_logic;
     signal  MapWrt          : std_logic;
     signal  MapAdr          : std_logic_vector( 21 downto 0 );
     signal  MapSize         : std_logic_vector(  2 downto 0 );
@@ -1044,6 +1089,8 @@ begin
                 dlydbi <= ExpDbi;
             elsif( mem = '1' and iSltFdc = '1' )then                                            -- WD2793 (Philips)
                 dlydbi <= fdc_dbi;
+            elsif( mem = '1' and MmcWin = '1' )then                                             -- MegaSD SD/MMC port
+                dlydbi <= MmcDbi;
             elsif( mem = '0' and adr(  7 downto 2 ) = "100110" )then                            -- VDP (V9938/V9958)
                 dlydbi <= VdpDbi;
             elsif( mem = '0' and adr(  7 downto 2 ) = "101000" )then                            -- PSG (AY-3-8910)
@@ -1094,7 +1141,7 @@ begin
                 jSltCart2 <= '0';
             end if;
 
-            if( mem = '1' and ((iSltMap or rom_main or rom_music or rom_sub or rom_disk) = '1') )then
+            if( mem = '1' and ((iSltMap or rom_main or rom_music or rom_sub or rom_disk) = '1' or (iSltErm = '1' and MmcWin = '0')) )then
                 jSltMem <= '1';
             else
                 jSltMem <= '0';
@@ -1272,6 +1319,12 @@ begin
     iSltMap     <=  mem when( w_prislt_dec(3) = '1' and Slot3Exp = '0' )else
                     mem when( w_prislt_dec(3) = '1' and ExpSltNum3 = RamSub and adr /= X"FFFF" )else
                     '0';
+    -- Slot 3-0 (3-2 with the RAM in 3-0) : MegaSD 4000-BFFFh (MSX2, hard disk enabled, driver loaded)
+    ErmSub      <=  "00" when( RamSub = "10" )else "10";
+    iSltErm     <=  mem when( (w_prislt_dec(3) and (w_page_dec(1) or w_page_dec(2))) = '1' and Slot3Exp = '1' and
+                              ExpSltNum3 = ErmSub and cfg_hdd = '1' and erm_ok = '1' and MSX1 = 0 )else
+                    '0';
+    MmcWin      <=  '1' when( iSltErm = '1' and MmcEna = '1' and adr(15 downto 13) = "010" )else '0';
     -- Slot 3-1 : SUB-ROM 0000-3FFFh
     rom_sub     <=  mem when( (w_prislt_dec(3) and w_expslt3_dec(1) and w_page_dec(0)) = '1' and rom_sub_ok = '1' and MSX1 = 0 )else
                     '0';
@@ -1286,7 +1339,8 @@ begin
                     '0';
 
     -- SDRAM access request
-    RamReq  <=  Cart1Ram or Cart2Ram or MapRam or RomReq;
+    RamReq  <=  Cart1Ram or Cart2Ram or MapRam or RomReq or ErmRam;
+    ErmReq  <=  req when( iSltErm = '1' )else '0';
 
     -- access request to component
     VdpReq      <=  req when( mem = '0' and adr(7 downto 2) = "100110"                      )else '0';  -- I/O:98-9Bh / VDP (V9938/V9958)
@@ -1461,6 +1515,7 @@ begin
     --       row = CpuAdr(24 downto 23) & CpuAdr(11 downto 1), column = CpuAdr(20 downto 12)
     -----------------------------------------------------------------
     CpuAdr  <=  "000"              & MapAdr                     when( iSltMap   = '1' )else     -- 0x0000000 mapper RAM (4 MB)
+                "001000" & ErmAdr(18 downto 0)                  when( iSltErm   = '1' )else     -- 0x0400000 ESE-RAM (MegaSD, 512 kB)
                 "10"               & Cart1Adr                   when( iSltCart1 = '1' and SDRAM16 = 0 )else -- 0x1000000 cartridge 1
                 "11"               & Cart2Adr                   when( iSltCart2 = '1' and SDRAM16 = 0 )else -- 0x1800000 cartridge 2
                 "010"  & Cart1Adr(21 downto 0)                  when( iSltCart1 = '1' )else     -- 16 MB: 0x0800000 cartridge 1 (4 MB)
@@ -1521,7 +1576,7 @@ begin
     --   SdrSta = "110" => read vdp
     --   SdrSta = "111" => write vdp
     ----------------------------------------------------------------
-    w_wrt_req   <=  (RamReq and MapWrt and iSltMap);
+    w_wrt_req   <=  (RamReq and MapWrt and iSltMap) or (ErmRam and ErmWrt and iSltErm);
 
     -- During the MSX reset the VDP stops its DHClk/DLClk: the SDRAM
     -- sequencer then runs freely, every slot is a CPU slot (used by the
@@ -1867,6 +1922,32 @@ begin
     -- OPLL wait enabler
     OpllEnaWait <= ff_clksel xnor ff_clksel5m_n;
 
+    U41 : megasd
+        port map(
+            clk21m  => clk21m,
+            reset   => reset,
+            req     => ErmReq,
+            wrt     => wrt,
+            adr     => adr,
+            dbo     => dbo,
+            ramreq  => ErmRam,
+            ramwrt  => ErmWrt,
+            ramadr  => ErmAdr,
+            mmcdbi  => MmcDbi,
+            mmcena  => MmcEna,
+            mmcact  => MmcAct,
+            mmc_ck  => mmc_ck,
+            mmc_cs  => mmc_cs,
+            mmc_di  => mmc_di,
+            mmc_do  => mmc_do,
+            epc_ck  => open,
+            epc_cs  => open,
+            epc_oe  => open,
+            epc_di  => open,
+            epc_do  => '0',
+            debug   => open
+        );
+
     U40 : rom_loader
         generic map( MSX1 => MSX1, SDRAM16 => SDRAM16 )
         port map(
@@ -1883,6 +1964,7 @@ begin
             rom_sub_ok      => rom_sub_ok,
             rom_disk_ok     => rom_disk_ok,
             rom_music_ok    => rom_music_ok,
+            erm_ok          => erm_ok,
             eject1          => eject1,
             eject2          => eject2,
             cart1_present   => cart1_present,

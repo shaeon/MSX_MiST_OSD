@@ -48,6 +48,7 @@ set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) ../esemsx3
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) ../esemsx3/src/sound/dac/esepwm.vhd]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) ../esemsx3/src/peripheral/keymap.vhd]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) ../esemsx3/src/peripheral/eseps2.vhd]
+set_global_assignment -name VERILOG_FILE [file join $::quartus(qip_path) ../esemsx3/src/peripheral/megasd.v]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) ../esemsx3/src/peripheral/mapper.vhd]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) ../mist/rtc_mist.vhd]
 set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) cart_slot.vhd]

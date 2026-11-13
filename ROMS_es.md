@@ -85,6 +85,20 @@ discos ni cintas).
 
 Si falta `MSX1.ROM` o no tiene MAIN-ROM, la pantalla se queda en negro.
 
+## Disco duro (MSX2): `MSX2.R04` y `MSX2.VHD`
+
+El core MSX2 puede usar una imagen de disco duro a través de una MegaSD emulada (la interfaz SD de la
+OneChipMSX). Necesita dos ficheros junto al core:
+
+- `MSX2.R04`: el driver de la MegaSD, de hasta 512 KB, que se carga en la ESE-RAM interna. Puede ser una
+  copia de `OCM-BIOS.DAT` (sus primeros 128 KB son el driver de la MegaSD) o una ROM de Nextor compilada
+  para OCM/MegaSD.
+- `MSX2.VHD`: la imagen del disco duro (FAT12/FAT16). El firmware la monta solo al arrancar como imagen SD 0;
+  se puede elegir otra desde el OSD.
+
+Después activa *System → Hard disk (MegaSD) → On*. La MegaSD va en el slot 3-0 (3-2 si la RAM está en 3-0).
+Con la opción en Off, o sin `MSX2.R04`, el core se comporta como antes y la imagen se ignora.
+
 ## Script
 
 `tools/make_roms.bat` (Windows) y `tools/make_roms.sh` (Linux / macOS) montan los dos ficheros a partir de
