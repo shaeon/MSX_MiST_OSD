@@ -176,7 +176,7 @@ entity msx2_core is
         cfg_vmode       : in    std_logic_vector(  1 downto 0 );    -- 00=BIOS, 01=60Hz, 10=50Hz
         cfg_vga         : in    std_logic;                          -- '1' = 31kHz output
         cfg_lcd         : in    std_logic;                          -- '1' = VGA timing for LCDs
-        cfg_kbd         : in    std_logic_vector(  1 downto 0 );    -- 00=US, 01=Italian, 10=Japanese
+        cfg_kbd         : in    std_logic_vector(  1 downto 0 );    -- 00=US, 01=Italian, 10=Japanese, 11=Spanish
         cfg_v9958       : in    std_logic;                          -- '1' = report a V9958 VDP
         cfg_ram30       : in    std_logic                           -- MSX2: '1' = RAM in slot 3-0 instead of 3-2
                                                                     -- MSX1: '1' = slot 3 expanded, RAM in 3-2
@@ -236,6 +236,7 @@ architecture RTL of msx2_core is
             clkena      : in    std_logic;
             Kmap        : in    std_logic;
             KmapIt      : in    std_logic;
+            KmapEs      : in    std_logic;
             Caps        : inout std_logic;
             Kana        : inout std_logic;
             Paus        : inout std_logic;
@@ -449,6 +450,7 @@ architecture RTL of msx2_core is
     signal  CustomSpeed     : std_logic_vector(  3 downto 0 ) := "0010";
     signal  Kmap            : std_logic;
     signal  KmapIt          : std_logic;
+    signal  KmapEs          : std_logic;
 
     -- Clock, Reset control signals
     signal  cpuclk          : std_logic := '1';
@@ -923,6 +925,7 @@ begin
             -- the keyboard layout can change at any time
             Kmap      <= not (cfg_kbd(1) and not cfg_kbd(0));       -- '0' = Japanese
             KmapIt    <= cfg_kbd(0) and not cfg_kbd(1);
+            KmapEs    <= cfg_kbd(0) and cfg_kbd(1);                  -- '1' = Spanish
         end if;
     end process;
 
@@ -1834,7 +1837,7 @@ begin
                         MapRam, MapWrt, MapAdr, RamDbi, open);
 
     U06 : eseps2
-        port map(clk21m, reset, clkena, Kmap, KmapIt, Caps, Kana, Paus, Scro, Reso, Fkeys,
+        port map(clk21m, reset, clkena, Kmap, KmapIt, KmapEs, Caps, Kana, Paus, Scro, Reso, Fkeys,
                         pPs2Clk, pPs2Dat, PpiPortC, PpiPortB, CmtScro);
 
     U07 : rtc_mist

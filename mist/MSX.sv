@@ -194,7 +194,9 @@ localparam SDRAM16 = 0;
 //                 1 = MSX2.R01 sub ROM, 2 = MSX2.R02 disk ROM,
 //                 3 = MSX2.R03 MSX-MUSIC ROM (optional, loaded at start)
 //                 7 = cartridge slot 1, 8 = cartridge slot 2
-// SD images:      0 = disk drive A: (.DSK), 1 = cassette (.CAS)
+// SD images:      0 = reserved for a hard disk (the firmware mounts <CORE>.VHD
+//                     here by itself at start-up: it must not reach the floppy),
+//                 1 = disk drive A: (.DSK), 2 = cassette (.CAS)
 ////////////////////////////////////////////////////////////////////////////
 
 `ifdef MSX1_CORE
@@ -204,15 +206,15 @@ localparam CONF_STR = {
 	"MSX1;;",
 	"F7,ROM,Cartridge slot 1;",
 	"F8,ROM,Cartridge slot 2;",
-	"S0U,DSK,Disk drive A:;",
-	"S1U,CAS,Cassette;",
+	"S1U,DSK,Disk drive A:;",
+	"S2U,CAS,Cassette;",
 	"T1,Rewind cassette;",
 	"T2,Eject cartridges & reset;",
 	"P1,System;",
 	"P1O46,CPU speed,3.58MHz,5.37MHz,6.96MHz,8.06MHz,10.74MHz;",
 	"P1OA,Disk drive,Enabled,Disabled;",
 	"P1OB,MSX-MUSIC (FM),Enabled,Disabled;",
-	"P1OCD,Keyboard,Italian,US,Japanese;",
+	"P1OCD,Keyboard,US,Spanish,Italian,Japanese;",
 	"P1OF,Swap joysticks,No,Yes;",
 	"P1OG,RAM slot,3 (normal),3-2 (Philips);",
 	"P2,Cartridges;",
@@ -236,8 +238,8 @@ localparam CONF_STR = {
 	"MSX2;;",
 	"F7,ROM,Cartridge slot 1;",
 	"F8,ROM,Cartridge slot 2;",
-	"S0U,DSK,Disk drive A:;",
-	"S1U,CAS,Cassette;",
+	"S1U,DSK,Disk drive A:;",
+	"S2U,CAS,Cassette;",
 	"T1,Rewind cassette;",
 	"T2,Eject cartridges & reset;",
 	"P1,System;",
@@ -245,7 +247,7 @@ localparam CONF_STR = {
 	"P1O79,RAM (mapper),512KB,1MB,2MB,4MB,128KB,256KB,64KB;",
 	"P1OA,Disk drive,Enabled,Disabled;",
 	"P1OB,MSX-MUSIC (FM),Enabled,Disabled;",
-	"P1OCD,Keyboard,Italian,US,Japanese;",
+	"P1OCD,Keyboard,US,Spanish,Italian,Japanese;",
 	"P1OE,VDP ID,V9938 (MSX2),V9958 (MSX2+);",
 	"P1OF,Swap joysticks,No,Yes;",
 	"P1OG,RAM slot,3-2 (Philips),3-0 (Sony);",
@@ -338,15 +340,15 @@ wire         no_csync;
 wire         scandoubler_disable;
 
 wire  [31:0] sd_lba;
-wire   [1:0] sd_rd;
-wire   [1:0] sd_wr;
+wire   [2:0] sd_rd;
+wire   [2:0] sd_wr;
 wire         sd_ack;
-wire   [1:0] sd_ack_x;
+wire   [2:0] sd_ack_x;
 wire   [8:0] sd_buff_addr;
 wire   [7:0] sd_buff_dout;
 wire   [7:0] sd_buff_din;
 wire         sd_buff_wr;
-wire   [1:0] img_mounted;
+wire   [2:0] img_mounted;
 wire  [63:0] img_size;
 
 wire         ps2_kbd_clk;
@@ -376,7 +378,7 @@ wire         i2c_ack;
 wire         i2c_end;
 `endif
 
-user_io #(.STRLEN($size(CONF_STR)>>3), .SD_IMAGES(2), .PS2DIV(100), .FEATURES(32'h0 | (BIG_OSD << 13) | (HDMI << 14))) user_io
+user_io #(.STRLEN($size(CONF_STR)>>3), .SD_IMAGES(3), .PS2DIV(100), .FEATURES(32'h0 | (BIG_OSD << 13) | (HDMI << 14))) user_io
 (
 	.clk_sys(clk_sys),
 	.clk_sd(clk_sys),
@@ -472,8 +474,9 @@ wire  [2:0] cfg_speed   = (status[6:4] > 3'd4) ? 3'd4 : status[6:4];
 wire  [2:0] cfg_ram     = status[9:7];
 wire        cfg_disk    = ~status[10];
 wire        cfg_music   = ~status[11];
-wire  [1:0] cfg_kbd     = (status[13:12] == 2'd0) ? 2'b01 :      // Italian
-                          (status[13:12] == 2'd1) ? 2'b00 :      // US
+wire  [1:0] cfg_kbd     = (status[13:12] == 2'd0) ? 2'b00 :      // US (default)
+                          (status[13:12] == 2'd1) ? 2'b11 :      // Spanish
+                          (status[13:12] == 2'd2) ? 2'b01 :      // Italian
                                                     2'b10;       // Japanese
 wire        cfg_v9958   = status[14];
 wire        joy_swap    = status[15];
@@ -636,7 +639,7 @@ cas_player cas_player
 	.rewind(cas_rewind),
 	.fast(cas_fast),
 	.motor(cas_motor),
-	.img_mounted(img_mounted[1]),
+	.img_mounted(img_mounted[2]),
 	.img_size(img_size[31:0]),
 	.sd_lba(cas_lba),
 	.sd_rd(cas_rd),
@@ -671,7 +674,7 @@ msx_fdc msx_fdc
 	.adr(fdc_adr),
 	.din(fdc_dbo),
 	.dout(fdc_dbi),
-	.img_mounted(img_mounted[0]),
+	.img_mounted(img_mounted[1]),
 	.img_size(img_size[31:0]),
 	.img_wp(1'b0),
 	.sd_lba(fdc_lba),
@@ -702,8 +705,8 @@ end
 wire   fdc_ack = sd_ack & (sd_grant == 2'd1);
 wire   cas_ack = sd_ack & (sd_grant == 2'd2);
 
-assign sd_rd  = {cas_rd & (sd_grant == 2'd2), fdc_sd_rd & (sd_grant == 2'd1)};
-assign sd_wr  = {1'b0,                        fdc_sd_wr & (sd_grant == 2'd1)};
+assign sd_rd  = {cas_rd & (sd_grant == 2'd2), fdc_sd_rd & (sd_grant == 2'd1), 1'b0};
+assign sd_wr  = {1'b0,                        fdc_sd_wr & (sd_grant == 2'd1), 1'b0};
 assign sd_lba = (sd_grant == 2'd2) ? cas_lba : fdc_lba;
 
 //////////////////   MSX2   ///////////////////
