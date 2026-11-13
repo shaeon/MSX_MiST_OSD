@@ -957,6 +957,34 @@ always @(posedge hdmiclk) begin
 end
 `endif
 
+////////////////////   Digital audio (I2S / SPDIF)   ////////////////////
+// The mixer gives 14-bit offset binary (silence = 2000h) for the 1-bit DAC.
+// I2S and SPDIF want signed samples: sent as they were ({0, audio, 0}) the
+// whole signal sat on a +50 % DC level and its peaks reached full scale, and
+// the Poseidon / Calypso output saturated. Here it is converted to signed,
+// the DC of the PSG (unipolar) is removed by a slow high-pass (~1.6 Hz, as in
+// BigMist/ZEMMIX misc/audio_mix.sv) and the result is saturated to 16 bits.
+reg  [8:0] aud_div;
+wire       aud_tick = (aud_div == 9'd0);                    // 21.48 MHz / 512 = 41.95 kHz
+always @(posedge clk_sys) aud_div <= aud_div + 1'd1;
+
+wire signed [14:0] aud_x = {{2{~audio[13]}}, audio[12:0]};  // offset binary -> signed
+reg  signed [26:0] aud_dc_acc;
+wire signed [14:0] aud_dc = aud_dc_acc[26:12];              // aud_dc_acc >>> 12
+reg  signed [15:0] audio_s;                                 // signed 16-bit sample
+wire signed [16:0] aud_y  = ({aud_x[14], aud_x} - {aud_dc[14], aud_dc}) <<< 1;
+
+always @(posedge clk_sys) begin
+	if(~locked)
+		aud_dc_acc <= 27'sd0;
+	else if(aud_tick)
+		aud_dc_acc <= aud_dc_acc + aud_x - aud_dc;
+
+	if(aud_y > 17'sd32767)       audio_s <= 16'sd32767;
+	else if(aud_y < -17'sd32768) audio_s <= -16'sd32768;
+	else                         audio_s <= aud_y[15:0];
+end
+
 `ifdef I2S_AUDIO
 i2s i2s (
 	.reset(~msx_reset_n),
@@ -965,8 +993,8 @@ i2s i2s (
 	.sclk(I2S_BCK),
 	.lrclk(I2S_LRCK),
 	.sdata(I2S_DATA),
-	.left_chan({1'b0, audio, 1'b0}),
-	.right_chan({1'b0, audio, 1'b0})
+	.left_chan(audio_s),
+	.right_chan(audio_s)
 );
 
 `ifdef I2S_AUDIO_HDMI
@@ -985,7 +1013,7 @@ spdif spdif (
 	.clk_i(clk_sys),
 	.clk_rate_i(32'd21_480_000),
 	.spdif_o(SPDIF),
-	.sample_i({2{1'b0, audio, 1'b0}})
+	.sample_i({audio_s, audio_s})
 );
 `endif
 
