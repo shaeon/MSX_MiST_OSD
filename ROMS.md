@@ -10,6 +10,25 @@ The Philips system ROMs are copyrighted and are **not** included in this reposit
 releases: you have to build the file from your own ROMs. The releases only include C-BIOS
 (`CBIOS_ROMs.zip`, see option C).
 
+## Summary: which files go on the SD card
+
+All of them go in the **root of the SD card** or in the **same folder as the core's `.rbf`**, with these exact
+names. The firmware loads them by itself when the core starts.
+
+| File on the SD card | What it is | Required? |
+|---|---|---|
+| `MSX2-OSD.ROM` | The MSX2 system ROMs joined (option A), **or** a renamed copy of `OCM-BIOS.DAT` (option B), **or** C-BIOS (option C) | yes |
+| `MSX2-OSD.R02` | 16 KB Philips DISK-ROM, only if `MSX2-OSD.ROM` is `OCM-BIOS.DAT` and you want disks | no |
+| `MSX2-OSD.R04` | Hard disk driver: **a renamed copy of `OCM-BIOS.DAT`** (or a Nextor ROM for the OCM) | only for the hard disk |
+| `MSX2-OSD.VHD` | Hard disk image | only for the hard disk |
+| `MSX1-OSD.ROM` | The MSX1 system ROMs joined, or C-BIOS | yes |
+| `MSX1-OSD.R03` | Hard disk driver: **a renamed copy of `OCM-BIOS.DAT`** (or a Nextor ROM for the OCM) | only for the hard disk |
+| `MSX1-OSD.VHD` | Hard disk image | only for the hard disk |
+
+`OCM-BIOS.DAT` is never used with its original name: it is always **copied and renamed** to the name in the
+table. The same file can be copied several times with different names (for example as `MSX1-OSD.R03` and as
+`MSX2-OSD.R04`). If you don't have it as a separate file, it is usually inside the VHD image of the OCM/ZEMMIX cores.
+
 ## MSX2: `MSX2-OSD.ROM`
 
 There are three ways to prepare it.
@@ -42,8 +61,8 @@ For MSX-MUSIC, append a 16 KB FM-BIOS at the end (for example, the one of a Pana
 The ROMs can also be in separate files: `MSX2-OSD.ROM` with only the 32 KB MAIN-ROM, then `MSX2-OSD.R01` = SUB-ROM,
 `MSX2-OSD.R02` = DISK-ROM, `MSX2-OSD.R03` = MSX-MUSIC. The firmware loads all of them at start-up.
 
-**B) The BIOS you already use with the current MSX core.** You can copy the file `OCM-BIOS.DAT` (KdL's MSX2+
-BIOS) and rename it `MSX2-OSD.ROM`: the core takes its MAIN-ROM, SUB-ROM and MSX-MUSIC. That BIOS has no DISK-ROM
+**B) The BIOS you already use with the current MSX core.** Make a copy of the file `OCM-BIOS.DAT` (KdL's MSX2+
+BIOS) named `MSX2-OSD.ROM`: the core takes its MAIN-ROM, SUB-ROM and MSX-MUSIC. That BIOS has no DISK-ROM
 for the Philips controller, so for disks you also need the file `MSX2-OSD.R02` with a 16 KB Philips DISK-ROM.
 With this BIOS set *System → VDP ID → V9958 (MSX2+)*.
 It is a handy way to start, but KdL's BIOS is made for the OneChipMSX: with a real MSX2 BIOS the core is more
@@ -90,15 +109,16 @@ With `MSX1-OSD.ROM` missing or without a MAIN-ROM the screen stays black.
 The MSX2 core can use a hard disk image through an emulated MegaSD (the SD interface of the OneChipMSX).
 It needs two files next to the core:
 
-- `MSX2-OSD.R04`: the MegaSD driver, up to 512 KB, loaded into the internal ESE-RAM. It can be a copy of
-  `OCM-BIOS.DAT` (its first 128 KB are the MegaSD driver) or a Nextor ROM built for the OCM/MegaSD.
+- `MSX2-OSD.R04`: the MegaSD driver, up to 512 KB, loaded into the internal ESE-RAM. The easiest way is a copy
+  of `OCM-BIOS.DAT` named `MSX2-OSD.R04` (its first 128 KB are the MegaSD driver). A Nextor ROM built for the
+  OCM/MegaSD also works.
 - `MSX2-OSD.VHD`: the hard disk image (FAT12/FAT16). The firmware mounts it by itself at start-up as SD image 0;
   another image can be chosen in the OSD.
 
 Then enable *System → Hard disk (MegaSD) → On*. The MegaSD sits in slot 3-0 (3-2 when the RAM is in 3-0).
 With the option Off, or without `MSX2-OSD.R04`, the core behaves as before and the image is ignored.
 
-**MSX1:** the same with `MSX1-OSD.R03` (driver) and `MSX1-OSD.VHD`. With *Hard disk → On* the slot 3 is expanded
+**MSX1:** the same with `MSX1-OSD.R03` (the driver: a copy of `OCM-BIOS.DAT` with that name) and `MSX1-OSD.VHD`. With *Hard disk → On* the slot 3 is expanded
 (RAM in 3-2, as in the Philips VG-8020) and the MegaSD goes to 3-0. With 64 KB, Nextor starts in MSX-DOS 1
 mode; for MSX-DOS 2 (NEXTOR.SYS, COMMAND2.COM) choose *System → RAM → 128/256/512 KB (mapper)*, like a RAM
 expansion cartridge. By default the MSX1 is still an original one: 64 KB, no mapper, no hard disk.
