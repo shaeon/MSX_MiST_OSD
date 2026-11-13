@@ -1,6 +1,6 @@
 # ROMs de sistema (MSX2-OSD.ROM / MSX1-OSD.ROM)
 
-*[Read in English](ROMS.md)*
+*[Read in English](ROMS.md) · [Página principal](README_es.md)*
 
 Al arrancar el core, el firmware de la placa (MiST, SiDi, SiDi128, Calypso, Poseidon) carga por sí solo
 `MSX2-OSD.ROM` (core MSX2) o `MSX1-OSD.ROM` (core MSX1), de la raíz de la SD o de la carpeta del core. Sin un

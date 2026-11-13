@@ -1,6 +1,6 @@
 # System ROMs (MSX2-OSD.ROM / MSX1-OSD.ROM)
 
-*[Leer en español](ROMS_es.md)*
+*[Leer en español](ROMS_es.md) · [Main page](README.md)*
 
 When the core starts, the board firmware (MiST, SiDi, SiDi128, Calypso, Poseidon) loads
 `MSX2-OSD.ROM` (MSX2 core) or `MSX1-OSD.ROM` (MSX1 core) by itself, from the root of the SD card or
