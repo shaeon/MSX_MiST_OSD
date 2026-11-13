@@ -190,9 +190,9 @@ localparam SDRAM16 = 0;
 ////////////////////////////////////////////////////////////////////////////
 // OSD menu
 //
-// data_io index:  0 = MSX2.ROM (main+sub+disk[+music] ROMs, loaded at start)
-//                 1 = MSX2.R01 sub ROM, 2 = MSX2.R02 disk ROM,
-//                 3 = MSX2.R03 MSX-MUSIC ROM (optional, loaded at start)
+// data_io index:  0 = MSX2-OSD.ROM (main+sub+disk[+music] ROMs, loaded at start)
+//                 1 = MSX2-OSD.R01 sub ROM, 2 = MSX2-OSD.R02 disk ROM,
+//                 3 = MSX2-OSD.R03 MSX-MUSIC ROM (optional, loaded at start)
 //                 7 = cartridge slot 1, 8 = cartridge slot 2
 // SD images:      0 = hard disk (MegaSD, MSX2 only; the firmware mounts <CORE>.VHD
 //                     here by itself at start-up, it never reaches the floppy),
@@ -203,7 +203,7 @@ localparam SDRAM16 = 0;
 // MSX1: 64 kB RAM without mapper, TMS9918 like video (V9938 in MSX1 modes)
 localparam MSX1 = 1;
 localparam CONF_STR = {
-	"MSX1;;",
+	"MSX1-OSD;;",
 	"F7,ROM,Cartridge slot 1;",
 	"F8,ROM,Cartridge slot 2;",
 	"S1U,DSK,Disk drive A:;",
@@ -237,7 +237,7 @@ localparam CONF_STR = {
 `else
 localparam MSX1 = 0;
 localparam CONF_STR = {
-	"MSX2;;",
+	"MSX2-OSD;;",
 	"F7,ROM,Cartridge slot 1;",
 	"F8,ROM,Cartridge slot 2;",
 	"S1U,DSK,Disk drive A:;",

@@ -140,7 +140,7 @@ jobs:
           mkdir -p dist
           DATE=$(date -u +%Y%m%d)
           OUT=${{ matrix.dir }}/output_files/${{ matrix.rev }}
-          NAME=${{ matrix.machine }}_${{ matrix.board }}
+          NAME=${{ matrix.machine }}-OSD_${{ matrix.board }}
           [ -f "$OUT.rbf" ] && cp "$OUT.rbf" "dist/${NAME}_${DATE}.rbf"
           for r in map fit sta flow asm; do
             [ -f "$OUT.$r.rpt" ] && cp "$OUT.$r.rpt" "dist/${NAME}.$r.rpt"
@@ -151,7 +151,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.machine }}_${{ matrix.board }}
+          name: ${{ matrix.machine }}-OSD_${{ matrix.board }}
           path: dist/
           retention-days: 30
 
@@ -175,8 +175,8 @@ jobs:
       - name: Empaquetar C-BIOS
         run: |
           mkdir -p cbios_pkg
-          cp cbios/MSX2_CBIOS.ROM cbios_pkg/MSX2.ROM
-          cp cbios/MSX1_CBIOS.ROM cbios_pkg/MSX1.ROM
+          cp cbios/MSX2_CBIOS.ROM cbios_pkg/MSX2-OSD.ROM
+          cp cbios/MSX1_CBIOS.ROM cbios_pkg/MSX1-OSD.ROM
           cp cbios/LICENSE.txt cbios_pkg/LICENSE_CBIOS.txt
           (cd cbios_pkg && zip -q ../dist/CBIOS_ROMs.zip *)
           ls -la dist

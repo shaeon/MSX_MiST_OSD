@@ -45,8 +45,8 @@ Voci: cartuccia slot 1 e 2, drive A:, cassetta, riavvolgi, estrai cartucce; *Sys
 ### 1. Il core
 Copia `MSX1.rbf` sulla SD.
 
-### 2. Le ROM di sistema: il file `MSX1.ROM`
-All'avvio il firmware della MiST carica da solo `MSX1.ROM`. È l'unione di:
+### 2. Le ROM di sistema: il file `MSX1-OSD.ROM`
+All'avvio il firmware della MiST carica da solo `MSX1-OSD.ROM`. È l'unione di:
 
 | Offset | Dimensione | Contenuto | Obbligatorio |
 |---|---|---|---|
@@ -56,22 +56,22 @@ All'avvio il firmware della MiST carica da solo `MSX1.ROM`. È l'unione di:
 
 Esempio con le ROM di un Philips VG-8020 e dell'interfaccia disco VY-0010 (i nomi dei file dipendono da dove le hai prese), su Windows:
 ```
-copy /b vg8020_basic-bios1.rom + vy0010.rom MSX1.ROM
+copy /b vg8020_basic-bios1.rom + vy0010.rom MSX1-OSD.ROM
 ```
 Linux / macOS:
 ```
-cat vg8020_basic-bios1.rom vy0010.rom > MSX1.ROM
+cat vg8020_basic-bios1.rom vy0010.rom > MSX1-OSD.ROM
 ```
 
-In alternativa: `MSX1.ROM` con la sola MAIN-ROM da 32 KB, `MSX1.R01` = DISK-ROM, `MSX1.R02` = MSX-MUSIC.
+In alternativa: `MSX1-OSD.ROM` con la sola MAIN-ROM da 32 KB, `MSX1-OSD.R01` = DISK-ROM, `MSX1-OSD.R02` = MSX-MUSIC.
 
 La DISK-ROM deve essere Philips (VY-0010, VG-8230/8235, NMS 8245/8250/8280): quelle Sony, Panasonic, Toshiba ecc. non funzionano.
 Su un MSX1 la scelta più fedele è la VY-0010, che era proprio un'interfaccia disco per MSX1.
 
-**Senza ROM originali** puoi provare il core con `cbios/MSX1_CBIOS.ROM` rinominato in `MSX1.ROM`: è C-BIOS, un BIOS libero che fa partire
+**Senza ROM originali** puoi provare il core con `cbios/MSX1_CBIOS.ROM` rinominato in `MSX1-OSD.ROM`: è C-BIOS, un BIOS libero che fa partire
 solo le cartucce (niente BASIC, dischi e cassette).
 
-Con un `MSX1.ROM` mancante o senza MAIN-ROM lo schermo resta nero.
+Con un `MSX1-OSD.ROM` mancante o senza MAIN-ROM lo schermo resta nero.
 
 ### 3. Giochi e programmi
 `.ROM`, `.DSK` e `.CAS` dove vuoi sulla SD, e si caricano dal menu.

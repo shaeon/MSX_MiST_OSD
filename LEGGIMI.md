@@ -53,8 +53,8 @@ Con le impostazioni di partenza (CPU 3,58 MHz, VDP V9938, 512 KB, drive attivo) 
 ### 1. Il core
 Copia `MSX2.rbf` sulla SD e caricalo dal menu dei core (o rinominalo `core.rbf` per farlo partire all'accensione).
 
-### 2. Le ROM di sistema: il file `MSX2.ROM`
-All'avvio il firmware della MiST carica da solo il file `MSX2.ROM` (dalla radice della SD o dalla cartella del core).
+### 2. Le ROM di sistema: il file `MSX2-OSD.ROM`
+All'avvio il firmware della MiST carica da solo il file `MSX2-OSD.ROM` (dalla radice della SD o dalla cartella del core).
 Ci sono tre modi per prepararlo.
 
 **A) ROM di un MSX2 vero (consigliato).** Il file è l'unione di queste ROM, in quest'ordine:
@@ -71,29 +71,29 @@ Con i nomi dei file dei set di ROM di sistema di openMSX:
 
 Windows (prompt dei comandi):
 ```
-copy /b nms8245_basic-bios2.rom + nms8245_msx2sub.rom + nms8245_disk.rom MSX2.ROM
+copy /b nms8245_basic-bios2.rom + nms8245_msx2sub.rom + nms8245_disk.rom MSX2-OSD.ROM
 ```
 Linux / macOS:
 ```
-cat nms8245_basic-bios2.rom nms8245_msx2sub.rom nms8245_disk.rom > MSX2.ROM
+cat nms8245_basic-bios2.rom nms8245_msx2sub.rom nms8245_disk.rom > MSX2-OSD.ROM
 ```
 
 Vanno bene anche le DISK-ROM di Philips NMS 8250/8255/8280, VG-8235 e VY-0010, che usano lo stesso controller.
 Quelle di altre marche (Sony, Panasonic, Toshiba…) usano registri diversi e **non** funzionano.
 Per avere l'MSX-MUSIC aggiungi in coda una FM-BIOS da 16 KB (per esempio quella di un Panasonic FS-A1WX).
 
-Le ROM possono anche stare in file separati: `MSX2.ROM` con la sola MAIN-ROM da 32 KB, poi `MSX2.R01` = SUB-ROM,
-`MSX2.R02` = DISK-ROM, `MSX2.R03` = MSX-MUSIC. Il firmware li carica tutti all'avvio.
+Le ROM possono anche stare in file separati: `MSX2-OSD.ROM` con la sola MAIN-ROM da 32 KB, poi `MSX2-OSD.R01` = SUB-ROM,
+`MSX2-OSD.R02` = DISK-ROM, `MSX2-OSD.R03` = MSX-MUSIC. Il firmware li carica tutti all'avvio.
 
-**B) Il BIOS che usi già con il core MSX attuale.** Puoi copiare il file `OCM-BIOS.DAT` (il BIOS MSX2+ di KdL) e rinominarlo `MSX2.ROM`:
+**B) Il BIOS che usi già con il core MSX attuale.** Puoi copiare il file `OCM-BIOS.DAT` (il BIOS MSX2+ di KdL) e rinominarlo `MSX2-OSD.ROM`:
 il core ne prende MAIN-ROM, SUB-ROM e MSX-MUSIC. Quel BIOS non contiene una DISK-ROM per il controller Philips, quindi per i dischi
-serve anche il file `MSX2.R02` con una DISK-ROM Philips da 16 KB. Con questo BIOS imposta *System → VDP ID → V9958 (MSX2+)*.
+serve anche il file `MSX2-OSD.R02` con una DISK-ROM Philips da 16 KB. Con questo BIOS imposta *System → VDP ID → V9958 (MSX2+)*.
 È una soluzione comoda per partire, ma il BIOS di KdL è pensato per la OneChipMSX: con un BIOS MSX2 vero il core è più fedele.
 
-**C) Senza ROM originali** puoi usare il file `MSX2_CBIOS.ROM` incluso, rinominato `MSX2.ROM`. È C-BIOS, un BIOS libero che fa
+**C) Senza ROM originali** puoi usare il file `MSX2_CBIOS.ROM` incluso, rinominato `MSX2-OSD.ROM`. È C-BIOS, un BIOS libero che fa
 partire solo le cartucce: niente BASIC, niente dischi e niente cassette.
 
-Senza un `MSX2.ROM` valido lo schermo resta nero.
+Senza un `MSX2-OSD.ROM` valido lo schermo resta nero.
 
 ### 3. Giochi e programmi
 Metti `.ROM`, `.DSK` e `.CAS` dove vuoi sulla SD, anche in sottocartelle, e caricali dal menu.

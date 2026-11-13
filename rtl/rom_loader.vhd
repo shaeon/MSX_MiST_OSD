@@ -4,11 +4,11 @@
 --   into a stream of SDRAM writes for the MSX2 core.
 --
 --   data_io index (ioctl_index[5:0]):
---     0 : MSX2.ROM  main BIOS (32K)  - may also be a combined image:
+--     0 : MSX2-OSD.ROM  main BIOS (32K)  - may also be a combined image:
 --                   MAIN(32K) + SUB(16K) + DISK(16K) [+ MSX-MUSIC(16K)]
---     1 : MSX2.R01  SUB ROM   (16K)
---     2 : MSX2.R02  DISK ROM  (16K, Philips/WD2793 type)
---     3 : MSX2.R03  MSX-MUSIC ROM (16K, optional)
+--     1 : MSX2-OSD.R01  SUB ROM   (16K)
+--     2 : MSX2-OSD.R02  DISK ROM  (16K, Philips/WD2793 type)
+--     3 : MSX2-OSD.R03  MSX-MUSIC ROM (16K, optional)
 --     7 : cartridge for slot 1   (OSD "F7")
 --     8 : cartridge for slot 2   (OSD "F8")
 --
@@ -87,7 +87,7 @@ architecture rtl of rom_loader is
     signal ff_kind      : kind_t := K_NONE;
     signal ff_sysbase   : unsigned(16 downto 0) := (others => '0');
     signal ff_finish    : std_logic := '0';
-    signal ff_ocm       : std_logic := '0';                         -- MSX2.ROM is an OCM-BIOS.DAT
+    signal ff_ocm       : std_logic := '0';                         -- MSX2-OSD.ROM is an OCM-BIOS.DAT
 
     signal f_main       : std_logic := '0';
     signal f_erm        : std_logic := '0';                         -- MegaSD driver in the ESE-RAM
@@ -207,10 +207,10 @@ begin
                 case ff_kind is
                     when K_SYS =>
                         sa := resize(ff_sysbase, 18) + resize(a(16 downto 0), 18);
-                        -- OCM-BIOS.DAT (1chipMSX / OCM, 384-512 kB) as MSX2.ROM: take the
+                        -- OCM-BIOS.DAT (1chipMSX / OCM, 384-512 kB) as MSX2-OSD.ROM: take the
                         -- MAIN-ROM (20000h), MSX-MUSIC (2C000h) and SUB-ROM (30000h)
                         sys_ok := ( dl_addr(26 downto 17) = "0000000000" );
-                        -- MSX1: MSX1.ROM = MAIN(32K) + DISK(16K) [+ MSX-MUSIC(16K)]
+                        -- MSX1: MSX1-OSD.ROM = MAIN(32K) + DISK(16K) [+ MSX-MUSIC(16K)]
                         if( MSX1 /= 0 and ff_sysbase = 0 )then
                             case dl_addr(16 downto 14) is
                                 when "000" | "001" => null;                                 -- MAIN
@@ -328,7 +328,7 @@ begin
             -- store the analysis result
             if( ff_finish = '1' )then
                 -- OCM-BIOS.DAT: its first 128 kB (MegaSD driver) were written over the
-                -- disk ROM area, a Philips disk ROM must come from MSX2.R02
+                -- disk ROM area, a Philips disk ROM must come from MSX2-OSD.R02
                 if( ff_kind = K_SYS and ff_ocm = '1' )then
                     f_disk <= '0';
                 end if;
