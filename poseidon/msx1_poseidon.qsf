@@ -13,6 +13,7 @@ set_global_assignment -name VERILOG_MACRO "NO_ANALOG_AUDIO=1"
 set_global_assignment -name VERILOG_MACRO "NO_UART=1"
 set_global_assignment -name VERILOG_MACRO "NO_DIRECT_UPLOAD=1"
 set_global_assignment -name VERILOG_MACRO "BIG_OSD=1"
+set_global_assignment -name VERILOG_MACRO "SDRAM_CLK_INVERT=1"
 set_global_assignment -name VERILOG_MACRO "MSX1_CORE=1"
 
 # Copyright (C) 1991-2007 Altera Corporation

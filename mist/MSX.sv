@@ -292,7 +292,40 @@ pll pll
 	.locked(locked)
 );
 
+`ifdef SDRAM_CLK_INVERT
+// Poseidon: SDRAM clock inverted (180 degrees) and sent out through a DDIO
+// register, as in the OCM emsx_top and in BigMist/ZEMMIX poseidon-gx150.
+// The controller drives the SDRAM on the rising edge of memclk, and the chip
+// samples half a cycle later, on the rising edge of SDRAM_CLK.
+`ifdef BOARD_CLOCK_50
+localparam SDRAM_CLK_FAMILY = "Cyclone IV GX";
+`else
+localparam SDRAM_CLK_FAMILY = "Cyclone 10 LP";
+`endif
+altddio_out #(
+	.extend_oe_disable("OFF"),
+	.intended_device_family(SDRAM_CLK_FAMILY),
+	.invert_output("OFF"),
+	.lpm_hint("UNUSED"),
+	.lpm_type("altddio_out"),
+	.oe_reg("UNREGISTERED"),
+	.power_up_high("OFF"),
+	.width(1)
+) sdramclk_ddr (
+	.datain_h(1'b0),
+	.datain_l(1'b1),
+	.outclock(memclk),
+	.dataout(SDRAM_CLK),
+	.aclr(1'b0),
+	.aset(1'b0),
+	.oe(1'b1),
+	.outclocken(1'b1),
+	.sclr(1'b0),
+	.sset(1'b0)
+);
+`else
 assign SDRAM_CLK = memclk;
+`endif
 
 //////////////////   MiST I/O   ///////////////////
 
