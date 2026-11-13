@@ -8,7 +8,7 @@ from the core's folder. Without a valid file the screen stays black.
 
 The Philips system ROMs are copyrighted and are **not** included in this repository or in the
 releases: you have to build the file from your own ROMs. The releases only include C-BIOS
-(`CBIOS_ROMs.zip`, see option C).
+(`CBIOS_ROMs.zip`, see option B).
 
 ## Summary: which files go on the SD card
 
@@ -17,21 +17,21 @@ names. The firmware loads them by itself when the core starts.
 
 | File on the SD card | What it is | Required? |
 |---|---|---|
-| `MSX2-OSD.ROM` | The MSX2 system ROMs joined (option A), **or** a renamed copy of `OCM-BIOS.DAT` (option B), **or** C-BIOS (option C) | yes |
-| `MSX2-OSD.R02` | 16 KB Philips DISK-ROM, only if `MSX2-OSD.ROM` is `OCM-BIOS.DAT` and you want disks | no |
+| `MSX2-OSD.ROM` | Your Philips MSX2 system ROMs joined (or C-BIOS) | yes |
 | `MSX2-OSD.R04` | Hard disk driver: **a renamed copy of `OCM-BIOS.DAT`** (or a Nextor ROM for the OCM) | only for the hard disk |
 | `MSX2-OSD.VHD` | Hard disk image | only for the hard disk |
-| `MSX1-OSD.ROM` | The MSX1 system ROMs joined, or C-BIOS | yes |
+| `MSX1-OSD.ROM` | Your Philips MSX1 system ROMs joined (or C-BIOS) | yes |
 | `MSX1-OSD.R03` | Hard disk driver: **a renamed copy of `OCM-BIOS.DAT`** (or a Nextor ROM for the OCM) | only for the hard disk |
 | `MSX1-OSD.VHD` | Hard disk image | only for the hard disk |
 
-`OCM-BIOS.DAT` is never used with its original name: it is always **copied and renamed** to the name in the
-table. The same file can be copied several times with different names (for example as `MSX1-OSD.R03` and as
+`MSX2-OSD.ROM` and `MSX1-OSD.ROM` are the computer's BIOS: your Philips ROMs. `OCM-BIOS.DAT` is **not** the BIOS:
+it is only needed for the hard disk, as the MegaSD driver, and it is never used with its original name: it is
+always **copied and renamed** to the name in the table. The same file can be copied several times with different names (for example as `MSX1-OSD.R03` and as
 `MSX2-OSD.R04`). If you don't have it as a separate file, it is usually inside the VHD image of the OCM/ZEMMIX cores.
 
 ## MSX2: `MSX2-OSD.ROM`
 
-There are three ways to prepare it.
+There are two ways to prepare it.
 
 **A) ROMs from a real MSX2 (recommended).** The file is these ROMs joined, in this order:
 
@@ -61,16 +61,16 @@ For MSX-MUSIC, append a 16 KB FM-BIOS at the end (for example, the one of a Pana
 The ROMs can also be in separate files: `MSX2-OSD.ROM` with only the 32 KB MAIN-ROM, then `MSX2-OSD.R01` = SUB-ROM,
 `MSX2-OSD.R02` = DISK-ROM, `MSX2-OSD.R03` = MSX-MUSIC. The firmware loads all of them at start-up.
 
-**B) The BIOS you already use with the current MSX core.** Make a copy of the file `OCM-BIOS.DAT` (KdL's MSX2+
+**B) Without original ROMs** you can use `cbios/MSX2_CBIOS.ROM` (or `MSX2-OSD.ROM` from `CBIOS_ROMs.zip` in the
+releases), renamed `MSX2-OSD.ROM`. It is C-BIOS, a free BIOS that only starts cartridges: no BASIC, no disks and
+no tapes.
+
+**Alternative: the OneChipMSX BIOS as the system BIOS.** Not needed for anything above. Make a copy of the file `OCM-BIOS.DAT` (KdL's MSX2+
 BIOS) named `MSX2-OSD.ROM`: the core takes its MAIN-ROM, SUB-ROM and MSX-MUSIC. That BIOS has no DISK-ROM
 for the Philips controller, so for disks you also need the file `MSX2-OSD.R02` with a 16 KB Philips DISK-ROM.
 With this BIOS set *System → VDP ID → V9958 (MSX2+)*.
 It is a handy way to start, but KdL's BIOS is made for the OneChipMSX: with a real MSX2 BIOS the core is more
 faithful.
-
-**C) Without original ROMs** you can use `cbios/MSX2_CBIOS.ROM` (or `MSX2-OSD.ROM` from `CBIOS_ROMs.zip` in the
-releases), renamed `MSX2-OSD.ROM`. It is C-BIOS, a free BIOS that only starts cartridges: no BASIC, no disks and
-no tapes.
 
 ## MSX1: `MSX1-OSD.ROM`
 
@@ -113,7 +113,7 @@ It needs two files next to the core:
   of `OCM-BIOS.DAT` named `MSX2-OSD.R04` (its first 128 KB are the MegaSD driver). A Nextor ROM built for the
   OCM/MegaSD also works.
 - `MSX2-OSD.VHD`: the hard disk image (FAT12/FAT16). The firmware mounts it by itself at start-up as SD image 0;
-  another image can be chosen in the OSD.
+  it can be changed in the OSD with *Hard disk (MegaSD):*.
 
 Then enable *System → Hard disk (MegaSD) → On*. The MegaSD sits in slot 3-0 (3-2 when the RAM is in 3-0).
 With the option Off, or without `MSX2-OSD.R04`, the core behaves as before and the image is ignored.
