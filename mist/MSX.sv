@@ -946,14 +946,47 @@ i2c_master #(22_000_000) i2c_master (
 	.I2C_SDA     (HDMI_SDA)
 );
 
+// HDMI: always 31 kHz and always RGB, whatever the VGA output does.
+// With 15 kHz chosen for the VGA (scandoubler_disable) the VDP gives 15 kHz
+// lines, which almost no TV accepts over HDMI: here they are doubled with the
+// mist-modules scandoubler, running on hdmiclk (2 x clk_sys, same PLL). It
+// samples at hdmiclk/2 = clk_sys (1368 samples per line) and outputs every
+// hdmiclk. With 31 kHz from the VDP it is bypassed. The HDMI picture takes the
+// RGB after the OSD, before the YPbPr conversion of the VGA output.
+wire [7:0] hd_r, hd_g, hd_b;
+wire       hd_hs, hd_vs, hd_hb, hd_vb;
+
+scandoubler #(.HCNT_WIDTH(11), .COLOR_DEPTH(8), .HSCNT_WIDTH(12), .OUT_COLOR_DEPTH(8)) hdmi_sd
+(
+	.clk_sys    ( hdmiclk ),
+	.bypass     ( ~scandoubler_disable ),
+	.ce_divider ( 3'd1 ),
+	.pixel_ena  ( ),
+	.scanlines  ( 2'b00 ),
+	.hb_in      ( Blank ),
+	.vb_in      ( 1'b0 ),
+	.hs_in      ( HSync ),
+	.vs_in      ( VSync ),
+	.r_in       ( osd_r_o ),
+	.g_in       ( osd_g_o ),
+	.b_in       ( osd_b_o ),
+	.hb_out     ( hd_hb ),
+	.vb_out     ( hd_vb ),
+	.hs_out     ( hd_hs ),
+	.vs_out     ( hd_vs ),
+	.r_out      ( hd_r ),
+	.g_out      ( hd_g ),
+	.b_out      ( hd_b )
+);
+
 assign HDMI_PCLK = hdmiclk;
 always @(posedge hdmiclk) begin
-	HDMI_R <= r;
-	HDMI_G <= g;
-	HDMI_B <= b;
-	HDMI_HS <= hs;
-	HDMI_VS <= vs;
-	HDMI_DE <= !bl;
+	HDMI_R  <= hd_r;
+	HDMI_G  <= hd_g;
+	HDMI_B  <= hd_b;
+	HDMI_HS <= hd_hs;
+	HDMI_VS <= hd_vs;
+	HDMI_DE <= ~(hd_hb | hd_vb);
 end
 `endif
 
